@@ -1,27 +1,75 @@
 const { Redis } = require('@upstash/redis');
+const { createClient } = require('redis');
 const { logger } = require('../utils/logger');
 
 class RedisService {
   constructor() {
-    if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
-      logger.warn('Upstash Redis credentials not found. Caching will be disabled.');
-      this.client = null;
-      this.isEnabled = false;
-      return;
-    }
+    this.isUpstash = process.env.NODE_ENV === 'production';
+    this.client = null;
+    this.isEnabled = false;
+    this.initializationPromise = this.initializeClient();
+  }
 
+  async initializeClient() {
     try {
-      this.client = new Redis({
-        url: process.env.UPSTASH_REDIS_REST_URL,
-        token: process.env.UPSTASH_REDIS_REST_TOKEN,
-      });
-      this.isEnabled = true;
-      logger.info('Redis client initialized successfully');
+      if (this.isUpstash) {
+        // Use Upstash Redis for production
+        if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+          logger.warn('Upstash Redis credentials not found. Caching will be disabled.');
+          return;
+        }
+
+        this.client = new Redis({
+          url: process.env.UPSTASH_REDIS_REST_URL,
+          token: process.env.UPSTASH_REDIS_REST_TOKEN,
+        });
+        this.isEnabled = true;
+        logger.info('Upstash Redis client initialized successfully');
+      } else {
+        // Use local Redis for development
+        const redisConfig = {
+          socket: {
+            host: process.env.REDIS_HOST || 'localhost',
+            port: parseInt(process.env.REDIS_PORT) || 6379,
+            connectTimeout: 10000,
+          },
+          database: parseInt(process.env.REDIS_DB) || 0,
+        };
+
+        if (process.env.REDIS_PASSWORD) {
+          redisConfig.password = process.env.REDIS_PASSWORD;
+        }
+
+        this.client = createClient(redisConfig);
+        
+        this.client.on('error', (err) => {
+          logger.warn('Local Redis connection error:', err.message);
+          this.isEnabled = false;
+        });
+
+        this.client.on('connect', () => {
+          logger.info('Local Redis client connected successfully');
+          this.isEnabled = true;
+        });
+
+        try {
+          await this.client.connect();
+        } catch (error) {
+          logger.warn('Failed to connect to local Redis:', error.message);
+          logger.info('Caching will be disabled. Make sure Redis is running locally or check your configuration.');
+          this.client = null;
+          this.isEnabled = false;
+        }
+      }
     } catch (error) {
       logger.error('Failed to initialize Redis client:', error.message);
       this.client = null;
       this.isEnabled = false;
     }
+  }
+
+  async ensureInitialized() {
+    await this.initializationPromise;
   }
 
   /**
@@ -30,16 +78,27 @@ class RedisService {
    * @returns {Promise<any|null>} Cached data or null if not found
    */
   async get(key) {
+    await this.ensureInitialized();
+    
     if (!this.isEnabled || !this.client) {
       return null;
     }
 
     try {
-      const data = await this.client.get(key);
+      let data;
+      
+      if (this.isUpstash) {
+        // Upstash Redis
+        data = await this.client.get(key);
+      } else {
+        // Local Redis
+        data = await this.client.get(key);
+      }
+
       if (data) {
         logger.debug(`Cache hit for key: ${key}`);
         
-        // Handle different data types returned by Upstash Redis
+        // Handle different data types returned by Redis
         if (typeof data === 'string') {
           try {
             return JSON.parse(data);
@@ -71,6 +130,8 @@ class RedisService {
    * @returns {Promise<boolean>} Success status
    */
   async set(key, data, ttl = 3600) {
+    await this.ensureInitialized();
+    
     if (!this.isEnabled || !this.client) {
       return false;
     }
@@ -78,7 +139,15 @@ class RedisService {
     try {
       // Ensure data is properly serialized
       const serializedData = typeof data === 'string' ? data : JSON.stringify(data);
-      await this.client.setex(key, ttl, serializedData);
+      
+      if (this.isUpstash) {
+        // Upstash Redis
+        await this.client.setex(key, ttl, serializedData);
+      } else {
+        // Local Redis
+        await this.client.setEx(key, ttl, serializedData);
+      }
+      
       logger.debug(`Cache set for key: ${key}, TTL: ${ttl}s`);
       return true;
     } catch (error) {
@@ -93,6 +162,8 @@ class RedisService {
    * @returns {Promise<boolean>} Success status
    */
   async del(key) {
+    await this.ensureInitialized();
+    
     if (!this.isEnabled || !this.client) {
       return false;
     }
@@ -120,13 +191,22 @@ class RedisService {
    * @returns {Promise<boolean>} Connection status
    */
   async ping() {
+    await this.ensureInitialized();
+    
     if (!this.isEnabled || !this.client) {
       return false;
     }
 
     try {
-      const result = await this.client.ping();
-      return result === 'PONG';
+      if (this.isUpstash) {
+        // Upstash Redis
+        const result = await this.client.ping();
+        return result === 'PONG';
+      } else {
+        // Local Redis
+        const result = await this.client.ping();
+        return result === 'PONG';
+      }
     } catch (error) {
       logger.error('Redis ping error:', error.message);
       return false;
