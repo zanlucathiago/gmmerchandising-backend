@@ -1,12 +1,13 @@
 # GM Merchandising Backend
 
-A secure backend service that provides geocoding functionality using Google Maps API with Firebase authentication.
+A secure backend service that provides geocoding functionality using Google Maps API with Firebase authentication and Redis caching.
 
 ## Features
 
 - 🗺️ **Reverse Geocoding**: Convert coordinates (latitude, longitude) to addresses
 - 📍 **Forward Geocoding**: Convert addresses to coordinates
 - 🔐 **Firebase Authentication**: Secure endpoints with Firebase anonymous/registered auth
+- ⚡ **Redis Caching**: Fast response times with Upstash Redis caching
 - 🛡️ **Security**: Rate limiting, CORS, helmet protection
 - ✅ **Validation**: Input validation for coordinates and addresses
 - 📝 **Logging**: Comprehensive logging system
@@ -17,6 +18,7 @@ A secure backend service that provides geocoding functionality using Google Maps
 - Node.js 16+ 
 - Firebase project with Authentication enabled
 - Google Maps API key with Geocoding API enabled
+- Upstash Redis database (optional, for caching)
 
 ## Quick Start
 
@@ -53,6 +55,10 @@ FIREBASE_CLIENT_CERT_URL=your-client-cert-url
 # Google Maps API
 GOOGLE_MAPS_API_KEY=your-google-maps-api-key
 
+# Upstash Redis Configuration (Optional - for caching)
+UPSTASH_REDIS_REST_URL=https://your-redis-instance.upstash.io
+UPSTASH_REDIS_REST_TOKEN=your_rest_token_here
+
 # Optional: CORS origins (comma-separated)
 ALLOWED_ORIGINS=http://localhost:3000,https://yourdomain.com
 ```
@@ -71,7 +77,16 @@ ALLOWED_ORIGINS=http://localhost:3000,https://yourdomain.com
 3. Create credentials (API Key)
 4. Restrict the key to Geocoding API for security
 
-### 5. Run the Application
+### 5. Setup Redis Caching (Optional)
+
+1. Sign up at [Upstash](https://upstash.com/)
+2. Create a new Redis database
+3. Copy the REST URL and REST Token
+4. Add them to your environment variables
+
+> **Note**: The application works perfectly without Redis - caching is optional for performance optimization.
+
+### 6. Run the Application
 
 Development mode:
 ```bash
@@ -210,7 +225,9 @@ Check service health and authentication.
   },
   "services": {
     "googleMaps": "Connected",
-    "firebase": "Connected"
+    "firebase": "Connected",
+    "redis": "Connected",
+    "redisPing": true
   }
 }
 ```
@@ -261,6 +278,50 @@ The API returns consistent error responses:
 - `INVALID_ADDRESS_FORMAT` - Address not a string
 - `EMPTY_ADDRESS` - Address is empty
 - `ADDRESS_TOO_LONG` - Address exceeds 500 characters
+
+## Caching System
+
+This application includes an optional Redis caching system using Upstash for improved performance and reduced API costs.
+
+### Features
+- **Automatic caching** of geocoding responses
+- **24-hour TTL** for cached responses
+- **Graceful degradation** when Redis is unavailable
+- **Cache-aside pattern** for reliability
+- **User-agnostic caching** for better hit rates
+
+### Cached Responses
+
+Cached responses include additional metadata:
+
+```json
+{
+  "success": true,
+  "data": {
+    // Original response data
+  },
+  "cached": true,
+  "cacheTimestamp": "2025-07-19T10:30:00.000Z"
+}
+```
+
+### Configuration
+
+Add these environment variables to enable caching:
+
+```env
+UPSTASH_REDIS_REST_URL=https://your-redis-instance.upstash.io
+UPSTASH_REDIS_REST_TOKEN=your_rest_token_here
+```
+
+### Performance Benefits
+
+- **Reduced latency**: ~50ms vs ~200-500ms for API calls
+- **Cost savings**: Reduced Google Maps API usage
+- **Higher availability**: Cached responses remain available during API outages
+- **Better user experience**: Faster response times for repeated requests
+
+For detailed caching documentation, see [CACHING.md](./CACHING.md).
 
 ## Client Integration Examples
 
