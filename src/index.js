@@ -22,7 +22,20 @@ app.use(cors({
   credentials: true
 }));
 
-// Rate limiting
+// Body parser
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// Health check endpoint (without rate limiting)
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    service: 'gmmerchandising-backend'
+  });
+});
+
+// Rate limiting (applied after health check)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
@@ -33,19 +46,6 @@ const limiter = rateLimit({
   legacyHeaders: false
 });
 app.use(limiter);
-
-// Body parser
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'OK',
-    timestamp: new Date().toISOString(),
-    service: 'gmmerchandising-backend'
-  });
-});
 
 // API routes
 app.use('/api/geocoding', geocodingRoutes);
