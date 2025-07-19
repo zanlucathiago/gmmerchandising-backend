@@ -15,6 +15,10 @@ const PORT = process.env.PORT || 3000;
 // Initialize Firebase Admin SDK
 initializeFirebase();
 
+// Trust proxy configuration for rate limiting and security
+// This allows Express to trust the X-Forwarded-* headers from proxies
+app.set('trust proxy', true);
+
 // Security middleware
 app.use(helmet());
 app.use(cors({
