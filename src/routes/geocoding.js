@@ -30,7 +30,6 @@ router.post('/reverse',
     logger.info(`📲 Platform: ${clientInfo.platform || 'N/A'}`);
     logger.info(`📍 Coordinates: ${latitude}, ${longitude}`);
     logger.info(`🔍 Querying Google Maps API...`);
-    logger.info(`${'='.repeat(60)}\n`);
 
     const result = await googleMapsService.reverseGeocode(latitude, longitude);
     
@@ -95,7 +94,6 @@ router.post('/forward',
     logger.info(`🚀 [FRESH] Forward Geocoding Request from user ${req.user.uid}`);
     logger.info(`🏠 Address: ${address}`);
     logger.info(`🔍 Querying Google Maps API...`);
-    logger.info(`${'='.repeat(60)}\n`);
 
     const result = await googleMapsService.geocode(address);
     
