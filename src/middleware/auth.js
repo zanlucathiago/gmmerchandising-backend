@@ -3,6 +3,11 @@ const { logger } = require('../utils/logger');
 
 const authenticateFirebaseToken = async (req, res, next) => {
   try {
+    // Log incoming request
+    const timestamp = new Date().toISOString();
+    logger.info(`${'🔥'.repeat(30)}`);
+    logger.info(`🔐 [${timestamp}] Authenticating ${req.method} ${req.originalUrl}`);
+    
     const authHeader = req.headers.authorization;
     
     if (!authHeader) {

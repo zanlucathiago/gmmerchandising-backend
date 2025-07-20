@@ -50,7 +50,59 @@ function cacheGeocodingResponse(cachePrefix, ttl = 86400, userSpecific = false) 
       // Try to get cached response
       const cachedResponse = await redisService.get(cacheKey);
       if (cachedResponse && typeof cachedResponse === 'object') {
-        logger.info(`Serving cached response for ${cachePrefix}`, { cacheKey, userId });
+        // Log the request even when serving from cache
+        const logData = { cacheKey, userId, cached: true };
+        
+        // Add client info to log if available (for reverse geocoding)
+        if (req.clientInfo && cachePrefix === 'reverse-geocode') {
+          logData.clientInfo = req.clientInfo;
+          logData.coordinates = { 
+            latitude: req.coordinates.latitude, 
+            longitude: req.coordinates.longitude 
+          };
+          logger.info(`📱 App Version: ${req.clientInfo.appVersion || 'N/A'}`);
+          logger.info(`🔢 Build Number: ${req.clientInfo.buildNumber || 'N/A'}`);
+          logger.info(`📲 Platform: ${req.clientInfo.platform || 'N/A'}`);
+          logger.info(`📍 Coordinates: ${req.coordinates.latitude}, ${req.coordinates.longitude}`);
+          logger.info(`⚡ Served from Redis cache`);
+          
+          // Log cached address details if available
+          if (cachedResponse.data && cachedResponse.data.formatted_address) {
+            logger.info(`🏠 Cached Address: ${cachedResponse.data.formatted_address}`);
+            logger.info(`📍 Place ID: ${cachedResponse.data.place_id}`);
+            
+            const components = cachedResponse.data.address_components;
+            if (components && components.administrative_area_level_2) {
+              logger.info(`🏙️  City: ${components.administrative_area_level_2}`);
+            }
+            if (components && components.administrative_area_level_1) {
+              logger.info(`🗺️  State: ${components.administrative_area_level_1}`);
+            }
+            if (components && components.country) {
+              logger.info(`🌎 Country: ${components.country} (${components.country_code || 'N/A'})`);
+            }
+          }
+          
+          logger.info(`${'='.repeat(60)}\n`);
+        } else if (cachePrefix === 'geocode') {
+          logData.address = req.address;
+          logger.info(`🏠 Address: ${req.address}`);
+          logger.info(`⚡ Served from Redis cache`);
+          
+          // Log cached coordinates if available
+          if (cachedResponse.data && cachedResponse.data.geometry && cachedResponse.data.geometry.location) {
+            logger.info(`🏠 Cached Address: ${cachedResponse.data.formatted_address}`);
+            logger.info(`📍 Coordinates: ${cachedResponse.data.geometry.location.lat}, ${cachedResponse.data.geometry.location.lng}`);
+            logger.info(`🌍 Location Type: ${cachedResponse.data.geometry.location_type}`);
+          }
+          
+          logger.info(`${'='.repeat(60)}\n`);
+        } else {
+          logger.info(`🚀 [CACHED] Serving cached response for ${cachePrefix}`);
+          logger.info(`⚡ Served from Redis cache`);
+          logger.info(`${'='.repeat(60)}\n`);
+        }
+        
         return res.status(200).json({
           ...cachedResponse,
           cached: true,

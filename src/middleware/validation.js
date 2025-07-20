@@ -34,6 +34,15 @@ const validateCoordinates = (req, res, next) => {
 
   // Add parsed coordinates to request
   req.coordinates = { latitude: lat, longitude: lng };
+  
+  // Extract optional client info for logging
+  const { appVersion, buildNumber, platform } = req.body;
+  req.clientInfo = {
+    appVersion: appVersion || null,
+    buildNumber: buildNumber || null,
+    platform: platform || null
+  };
+  
   next();
 };
 

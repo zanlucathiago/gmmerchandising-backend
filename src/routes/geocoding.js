@@ -13,7 +13,7 @@ const googleMapsService = new GoogleMapsService();
  * @route POST /api/geocoding/reverse
  * @description Convert coordinates (latitude, longitude) to address using Google Maps Geocoding API
  * @access Private (requires Firebase authentication)
- * @body { latitude: number, longitude: number }
+ * @body { latitude: number, longitude: number, appVersion?: string, buildNumber?: string, platform?: string }
  */
 router.post('/reverse', 
   authenticateFirebaseToken, 
@@ -22,18 +22,46 @@ router.post('/reverse',
   async (req, res, next) => {
   try {
     const { latitude, longitude } = req.coordinates;
+    const clientInfo = req.clientInfo || {};
     
-    logger.info(`Reverse geocoding request from user ${req.user.uid}:`, { latitude, longitude });
+    logger.info(`� [FRESH] Reverse Geocoding Request from user ${req.user.uid}`);
+    logger.info(`📱 App Version: ${clientInfo.appVersion || 'N/A'}`);
+    logger.info(`🔢 Build Number: ${clientInfo.buildNumber || 'N/A'}`);
+    logger.info(`📲 Platform: ${clientInfo.platform || 'N/A'}`);
+    logger.info(`📍 Coordinates: ${latitude}, ${longitude}`);
+    logger.info(`🔍 Querying Google Maps API...`);
+    logger.info(`${'='.repeat(60)}\n`);
 
     const result = await googleMapsService.reverseGeocode(latitude, longitude);
     
     if (!result.success) {
+      logger.info(`❌ Reverse geocoding failed for user ${req.user.uid}`);
+      logger.info(`${'='.repeat(60)}\n`);
       return res.status(404).json({
         success: false,
         message: result.message,
         coordinates: result.coordinates
       });
     }
+
+    logger.info(`✅ Reverse geocoding successful for user ${req.user.uid}`);
+    logger.info(`🏠 Full Address: ${result.data.formatted_address}`);
+    logger.info(`📍 Place ID: ${result.data.place_id}`);
+    logger.info(`🌍 Location Type: ${result.data.geometry.location_type}`);
+    
+    // Log key address components if available
+    const components = result.data.address_components;
+    if (components.administrative_area_level_2) {
+      logger.info(`🏙️  City: ${components.administrative_area_level_2}`);
+    }
+    if (components.administrative_area_level_1) {
+      logger.info(`🗺️  State: ${components.administrative_area_level_1}`);
+    }
+    if (components.country) {
+      logger.info(`🌎 Country: ${components.country} (${components.country_code})`);
+    }
+    
+    logger.info(`${'='.repeat(60)}\n`);
 
     res.status(200).json({
       success: true,
@@ -64,17 +92,29 @@ router.post('/forward',
   try {
     const address = req.address;
     
-    logger.info(`Forward geocoding request from user ${req.user.uid}:`, { address });
+    logger.info(`🚀 [FRESH] Forward Geocoding Request from user ${req.user.uid}`);
+    logger.info(`🏠 Address: ${address}`);
+    logger.info(`🔍 Querying Google Maps API...`);
+    logger.info(`${'='.repeat(60)}\n`);
 
     const result = await googleMapsService.geocode(address);
     
     if (!result.success) {
+      logger.info(`❌ Forward geocoding failed for user ${req.user.uid}`);
+      logger.info(`${'='.repeat(60)}\n`);
       return res.status(404).json({
         success: false,
         message: result.message,
         address: result.address
       });
     }
+
+    logger.info(`✅ Forward geocoding successful for user ${req.user.uid}`);
+    logger.info(`🏠 Full Address: ${result.data.formatted_address}`);
+    logger.info(`📍 Coordinates: ${result.data.geometry.location.lat}, ${result.data.geometry.location.lng}`);
+    logger.info(`📍 Place ID: ${result.data.place_id}`);
+    logger.info(`🌍 Location Type: ${result.data.geometry.location_type}`);
+    logger.info(`${'='.repeat(60)}\n`);
 
     res.status(200).json({
       success: true,
