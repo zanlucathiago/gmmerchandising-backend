@@ -16,8 +16,8 @@ const PORT = process.env.PORT || 3000;
 initializeFirebase();
 
 // Trust proxy configuration for rate limiting and security
-// This allows Express to trust the X-Forwarded-* headers from proxies
-app.set('trust proxy', true);
+// Configure to trust only the first proxy (recommended for Render deployment)
+app.set('trust proxy', 1);
 
 // Security middleware
 app.use(helmet());
@@ -47,7 +47,11 @@ const limiter = rateLimit({
     error: 'Too many requests from this IP, please try again later.'
   },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  // Skip IP validation warning since we're using trust proxy = 1
+  validate: {
+    trustProxy: false
+  }
 });
 app.use(limiter);
 
