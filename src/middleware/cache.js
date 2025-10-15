@@ -22,11 +22,12 @@ function generateCacheKey(prefix, data, userId = null) {
 /**
  * Middleware to cache geocoding responses
  * @param {string} cachePrefix - Prefix for cache keys (e.g., 'geocode', 'reverse-geocode')
- * @param {number} ttl - Cache time-to-live in seconds (default: 24 hours)
+ * @param {number} ttl - Cache time-to-live in seconds (default: 24 hours, 0 for no expiration)
  * @param {boolean} userSpecific - Whether to make cache user-specific (default: false)
+ * @param {boolean} perpetual - Whether to use perpetual caching (never expires) (default: false)
  * @returns {Function} Express middleware function
  */
-function cacheGeocodingResponse(cachePrefix, ttl = 86400, userSpecific = false) {
+function cacheGeocodingResponse(cachePrefix, ttl = 86400, userSpecific = false, perpetual = false) {
   return async (req, res, next) => {
     // Skip caching if Redis is not available
     if (!redisService.isAvailable()) {
@@ -49,11 +50,14 @@ function cacheGeocodingResponse(cachePrefix, ttl = 86400, userSpecific = false) 
 
       // Try to get cached response
       const cachedResponse = await redisService.get(cacheKey);
-      if (cachedResponse && typeof cachedResponse === 'object') {
+        if (cachedResponse && typeof cachedResponse === 'object') {
         // Log the request even when serving from cache
         const logData = { cacheKey, userId, cached: true };
         
-        // Add client info to log if available (for reverse geocoding)
+        // Check if cache is perpetual and add metadata
+        const cacheAge = cachedResponse.cacheMetadata ? 
+          Date.now() - new Date(cachedResponse.cacheMetadata.cachedAt).getTime() : 0;
+        const isPerpetual = cachedResponse.cacheMetadata?.perpetual || false;        // Add client info to log if available (for reverse geocoding)
         if (req.clientInfo && cachePrefix === 'reverse-geocode') {
           logData.clientInfo = req.clientInfo;
           logData.coordinates = { 
@@ -106,7 +110,13 @@ function cacheGeocodingResponse(cachePrefix, ttl = 86400, userSpecific = false) 
         return res.status(200).json({
           ...cachedResponse,
           cached: true,
-          cacheTimestamp: new Date().toISOString()
+          cacheTimestamp: new Date().toISOString(),
+          cacheMetadata: {
+            ...cachedResponse.cacheMetadata,
+            isPerpetual,
+            cacheAge: Math.floor(cacheAge / 1000), // Age in seconds
+            servedAt: new Date().toISOString()
+          }
         });
       }
 
@@ -117,16 +127,28 @@ function cacheGeocodingResponse(cachePrefix, ttl = 86400, userSpecific = false) 
       res.json = function(data) {
         // Only cache successful responses
         if (res.statusCode === 200 && data.success) {
-          // Cache the response data (without the cached flag)
+          // Prepare cache data
           const responseToCache = { ...data };
           delete responseToCache.cached;
           delete responseToCache.cacheTimestamp;
+          delete responseToCache.cacheMetadata;
           
-          redisService.set(cacheKey, responseToCache, ttl).catch(error => {
+          // Add cache metadata
+          responseToCache.cacheMetadata = {
+            cachedAt: new Date().toISOString(),
+            perpetual: perpetual,
+            cachePrefix: cachePrefix,
+            originalTtl: ttl
+          };
+          
+          // Set cache with appropriate TTL
+          const finalTtl = perpetual ? 0 : ttl; // 0 means no expiration in Redis
+          redisService.set(cacheKey, responseToCache, finalTtl).catch(error => {
             logger.error('Failed to cache response:', error.message);
           });
           
-          logger.info(`Response cached for ${cachePrefix}`, { cacheKey, ttl, userId });
+          const cacheType = perpetual ? 'PERPETUAL' : `${ttl}s TTL`;
+          logger.info(`Response cached for ${cachePrefix} (${cacheType})`, { cacheKey, ttl: finalTtl, userId, perpetual });
         }
 
         // Call original res.json

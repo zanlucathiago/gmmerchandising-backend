@@ -8,7 +8,11 @@
     "dev": "nodemon src/index.js",
     "test": "jest",
     "cache-diagnostic": "node scripts/cache-diagnostic.js",
-    "cache-cleanup": "node scripts/cache-cleanup.js"
+    "cache-cleanup": "node scripts/cache-cleanup.js",
+    "perpetual-cache": "node scripts/perpetual-cache-manager.js",
+    "cache-status": "node scripts/perpetual-cache-manager.js status",
+    "cache-health": "node scripts/perpetual-cache-manager.js health",
+    "cache-migrate": "node scripts/perpetual-cache-manager.js migrate"
   },
   "keywords": [
     "geocoding",

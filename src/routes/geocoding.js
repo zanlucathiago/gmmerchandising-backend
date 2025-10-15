@@ -4,6 +4,7 @@ const { authenticateFirebaseToken } = require('../middleware/auth');
 const { validateCoordinates, validateAddress } = require('../middleware/validation');
 const { cacheGeocodingResponse } = require('../middleware/cache');
 const redisService = require('../config/redis');
+const perpetualCache = require('../utils/perpetualCache');
 const { logger } = require('../utils/logger');
 
 const router = express.Router();
@@ -18,7 +19,7 @@ const googleMapsService = new GoogleMapsService();
 router.post('/reverse', 
   authenticateFirebaseToken, 
   validateCoordinates, 
-  cacheGeocodingResponse('reverse-geocode', 86400), // Cache for 24 hours
+  cacheGeocodingResponse('reverse-geocode', 0, false, true), // Perpetual cache - never expires
   async (req, res, next) => {
   try {
     const { latitude, longitude } = req.coordinates;
@@ -86,7 +87,7 @@ router.post('/reverse',
 router.post('/forward', 
   authenticateFirebaseToken, 
   validateAddress, 
-  cacheGeocodingResponse('geocode', 86400), // Cache for 24 hours
+  cacheGeocodingResponse('geocode', 0, false, true), // Perpetual cache - never expires
   async (req, res, next) => {
   try {
     const address = req.address;
@@ -170,6 +171,153 @@ router.get('/status', authenticateFirebaseToken, async (req, res) => {
         firebase: 'Connected',
         redis: 'Error',
         redisError: error.message
+      }
+    });
+  }
+});
+
+/**
+ * @route GET /api/geocoding/cache/info
+ * @description Get cache information and statistics
+ * @access Private (requires Firebase authentication)
+ */
+router.get('/cache/info', authenticateFirebaseToken, async (req, res) => {
+  try {
+    const { key } = req.query;
+    
+    if (!redisService.isAvailable()) {
+      return res.status(503).json({
+        success: false,
+        message: 'Redis cache is not available'
+      });
+    }
+
+    if (key) {
+      // Get info for specific cache key
+      const cacheInfo = await redisService.getCacheInfo(key);
+      
+      res.status(200).json({
+        success: true,
+        message: cacheInfo ? 'Cache information retrieved' : 'Cache key not found',
+        data: cacheInfo,
+        user: {
+          uid: req.user.uid,
+          isAnonymous: req.user.isAnonymous
+        }
+      });
+    } else {
+      // Get general cache statistics
+      const ping = await redisService.ping();
+      
+      res.status(200).json({
+        success: true,
+        message: 'Cache service is operational',
+        data: {
+          available: true,
+          connected: ping,
+          perpetualCacheEnabled: true,
+          cacheStrategy: 'Perpetual geocoding cache with fallback to Google Maps API'
+        },
+        user: {
+          uid: req.user.uid,
+          isAnonymous: req.user.isAnonymous
+        }
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve cache information',
+      error: error.message,
+      user: {
+        uid: req.user.uid,
+        isAnonymous: req.user.isAnonymous
+      }
+    });
+  }
+});
+
+/**
+ * @route GET /api/geocoding/cache/stats
+ * @description Get perpetual cache statistics and health
+ * @access Private (requires Firebase authentication)
+ */
+router.get('/cache/stats', authenticateFirebaseToken, async (req, res) => {
+  try {
+    const stats = await perpetualCache.getStats();
+    const health = await perpetualCache.healthCheck();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Cache statistics retrieved successfully',
+      data: {
+        stats,
+        health,
+        cacheStrategy: {
+          type: 'Perpetual Cache',
+          description: 'Geocoding responses never expire, ensuring zero cache misses',
+          benefits: [
+            'Eliminates repeated API calls for same locations',
+            'Reduces Google Maps API costs significantly',
+            'Improves response times dramatically',
+            'Provides better user experience'
+          ]
+        }
+      },
+      user: {
+        uid: req.user.uid,
+        isAnonymous: req.user.isAnonymous
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve cache statistics',
+      error: error.message,
+      user: {
+        uid: req.user.uid,
+        isAnonymous: req.user.isAnonymous
+      }
+    });
+  }
+});
+
+/**
+ * @route POST /api/geocoding/cache/warmup
+ * @description Warm up cache with provided locations
+ * @access Private (requires Firebase authentication)
+ * @body { locations: Array<{lat: number, lng: number} | {address: string}> }
+ */
+router.post('/cache/warmup', authenticateFirebaseToken, async (req, res) => {
+  try {
+    const { locations } = req.body;
+    
+    if (!locations || !Array.isArray(locations)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Locations array is required in request body'
+      });
+    }
+
+    const results = await perpetualCache.warmupCache(locations);
+    
+    res.status(200).json({
+      success: results.success,
+      message: results.success ? 'Cache warmup analysis completed' : 'Cache warmup failed',
+      data: results,
+      user: {
+        uid: req.user.uid,
+        isAnonymous: req.user.isAnonymous
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Cache warmup failed',
+      error: error.message,
+      user: {
+        uid: req.user.uid,
+        isAnonymous: req.user.isAnonymous
       }
     });
   }
