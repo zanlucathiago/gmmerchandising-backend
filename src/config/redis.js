@@ -126,7 +126,7 @@ class RedisService {
    * Set data in Redis cache
    * @param {string} key - Cache key
    * @param {any} data - Data to cache
-   * @param {number} ttl - Time to live in seconds (default: 1 hour)
+   * @param {number} ttl - Time to live in seconds (default: 1 hour, 0 for no expiration)
    * @returns {Promise<boolean>} Success status
    */
   async set(key, data, ttl = 3600) {
@@ -140,15 +140,28 @@ class RedisService {
       // Ensure data is properly serialized
       const serializedData = typeof data === 'string' ? data : JSON.stringify(data);
       
-      if (this.isUpstash) {
-        // Upstash Redis
-        await this.client.setex(key, ttl, serializedData);
+      if (ttl === 0) {
+        // Set without expiration (perpetual cache)
+        if (this.isUpstash) {
+          // Upstash Redis - set without TTL
+          await this.client.set(key, serializedData);
+        } else {
+          // Local Redis - set without TTL
+          await this.client.set(key, serializedData);
+        }
+        logger.debug(`Perpetual cache set for key: ${key} (no expiration)`);
       } else {
-        // Local Redis
-        await this.client.setEx(key, ttl, serializedData);
+        // Set with TTL
+        if (this.isUpstash) {
+          // Upstash Redis
+          await this.client.setex(key, ttl, serializedData);
+        } else {
+          // Local Redis
+          await this.client.setEx(key, ttl, serializedData);
+        }
+        logger.debug(`Cache set for key: ${key}, TTL: ${ttl}s`);
       }
       
-      logger.debug(`Cache set for key: ${key}, TTL: ${ttl}s`);
       return true;
     } catch (error) {
       logger.error(`Redis set error for key ${key}:`, error.message);
@@ -210,6 +223,83 @@ class RedisService {
     } catch (error) {
       logger.error('Redis ping error:', error.message);
       return false;
+    }
+  }
+
+  /**
+   * Get TTL (time to live) for a key
+   * @param {string} key - Cache key
+   * @returns {Promise<number>} TTL in seconds (-1 for no expiration, -2 for key not found)
+   */
+  async ttl(key) {
+    await this.ensureInitialized();
+    
+    if (!this.isEnabled || !this.client) {
+      return -2;
+    }
+
+    try {
+      return await this.client.ttl(key);
+    } catch (error) {
+      logger.error(`Redis TTL error for key ${key}:`, error.message);
+      return -2;
+    }
+  }
+
+  /**
+   * Set a key to never expire (remove TTL)
+   * @param {string} key - Cache key
+   * @returns {Promise<boolean>} Success status
+   */
+  async persist(key) {
+    await this.ensureInitialized();
+    
+    if (!this.isEnabled || !this.client) {
+      return false;
+    }
+
+    try {
+      const result = await this.client.persist(key);
+      logger.debug(`Key ${key} set to persist (no expiration)`);
+      return result === 1;
+    } catch (error) {
+      logger.error(`Redis persist error for key ${key}:`, error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Get cache information for a key
+   * @param {string} key - Cache key
+   * @returns {Promise<Object|null>} Cache info object
+   */
+  async getCacheInfo(key) {
+    await this.ensureInitialized();
+    
+    if (!this.isEnabled || !this.client) {
+      return null;
+    }
+
+    try {
+      const exists = await this.client.exists(key);
+      if (!exists) {
+        return null;
+      }
+
+      const ttl = await this.ttl(key);
+      const data = await this.get(key);
+      
+      return {
+        key,
+        exists: exists === 1,
+        ttl: ttl,
+        isPerpetual: ttl === -1,
+        hasExpiration: ttl > 0,
+        cacheMetadata: data?.cacheMetadata || null
+      };
+    } catch (error) {
+      logger.error(`Redis cache info error for key ${key}:`, error.message);
+      return null;
     }
   }
 }
