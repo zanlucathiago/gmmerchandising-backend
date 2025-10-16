@@ -22,14 +22,23 @@ router.post('/reverse',
   cacheGeocodingResponse('reverse-geocode', 0, false, true), // Perpetual cache - never expires
   async (req, res, next) => {
   try {
-    const { latitude, longitude } = req.coordinates;
+    const { latitude, longitude } = req.coordinates; // These are already rounded to 3 decimal places
+    const originalCoords = req.originalCoordinates; // Original coordinates before rounding
     const clientInfo = req.clientInfo || {};
     
-    logger.info(`� [FRESH] Reverse Geocoding Request from user ${req.user.uid}`);
+    logger.info(`🚀 [FRESH] Reverse Geocoding Request from user ${req.user.uid}`);
     logger.info(`📱 App Version: ${clientInfo.appVersion || 'N/A'}`);
     logger.info(`🔢 Build Number: ${clientInfo.buildNumber || 'N/A'}`);
     logger.info(`📲 Platform: ${clientInfo.platform || 'N/A'}`);
-    logger.info(`📍 Coordinates: ${latitude}, ${longitude}`);
+    
+    // Log both original and rounded coordinates for transparency
+    if (originalCoords.latitude !== latitude || originalCoords.longitude !== longitude) {
+      logger.info(`📍 Original Coordinates: ${originalCoords.latitude}, ${originalCoords.longitude}`);
+      logger.info(`🎯 Rounded Coordinates (3 decimals): ${latitude}, ${longitude}`);
+    } else {
+      logger.info(`📍 Coordinates: ${latitude}, ${longitude}`);
+    }
+    
     logger.info(`🔍 Querying Google Maps API...`);
 
     const result = await googleMapsService.reverseGeocode(latitude, longitude);

@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const redisService = require('../config/redis');
 const { logger } = require('../utils/logger');
+const { roundCoordinates } = require('../utils/coordinateUtils');
 
 /**
  * Generate cache key based on request data and user
@@ -10,6 +11,12 @@ const { logger } = require('../utils/logger');
  * @returns {string} Generated cache key
  */
 function generateCacheKey(prefix, data, userId = null) {
+  // Ensure coordinates are rounded for consistent cache keys
+  if (data.latitude !== undefined && data.longitude !== undefined) {
+    const rounded = roundCoordinates(data.latitude, data.longitude, 3);
+    data = { ...data, latitude: rounded.latitude, longitude: rounded.longitude };
+  }
+  
   const dataString = JSON.stringify(data);
   const hash = crypto.createHash('md5').update(dataString).digest('hex');
   

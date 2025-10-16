@@ -1,5 +1,6 @@
 const { Client } = require('@googlemaps/google-maps-services-js');
 const { logger } = require('../utils/logger');
+const { roundCoordinates } = require('../utils/coordinateUtils');
 
 class GoogleMapsService {
   constructor() {
@@ -13,9 +14,14 @@ class GoogleMapsService {
 
   async reverseGeocode(latitude, longitude) {
     try {
+      // Ensure coordinates are rounded to 3 decimal places for consistency
+      const roundedCoords = roundCoordinates(latitude, longitude, 3);
+      
+      logger.info(`🎯 Using rounded coordinates for API call: ${roundedCoords.latitude}, ${roundedCoords.longitude}`);
+      
       const response = await this.client.reverseGeocode({
         params: {
-          latlng: { lat: latitude, lng: longitude },
+          latlng: { lat: roundedCoords.latitude, lng: roundedCoords.longitude },
           key: this.apiKey,
           result_type: ['street_address', 'route', 'locality', 'administrative_area_level_1', 'country', 'postal_code']
         }
@@ -30,7 +36,7 @@ class GoogleMapsService {
         return {
           success: false,
           message: 'No address found for the provided coordinates',
-          coordinates: { latitude, longitude }
+          coordinates: roundedCoords
         };
       }
 
@@ -41,7 +47,7 @@ class GoogleMapsService {
       return {
         success: true,
         data: {
-          coordinates: { latitude, longitude },
+          coordinates: roundedCoords, // Return rounded coordinates
           formatted_address: firstResult.formatted_address,
           place_id: firstResult.place_id,
           address_components: addressComponents,
