@@ -1,3 +1,5 @@
+const { roundCoordinates } = require('../utils/coordinateUtils');
+
 const validateCoordinates = (req, res, next) => {
   const { latitude, longitude } = req.body;
 
@@ -32,8 +34,14 @@ const validateCoordinates = (req, res, next) => {
     });
   }
 
-  // Add parsed coordinates to request
-  req.coordinates = { latitude: lat, longitude: lng };
+  // Round coordinates to 3 decimal places for consistency in cache and API calls
+  const roundedCoordinates = roundCoordinates(lat, lng, 3);
+
+  // Add rounded coordinates to request
+  req.coordinates = roundedCoordinates;
+  
+  // Store original coordinates for reference if needed
+  req.originalCoordinates = { latitude: lat, longitude: lng };
   
   // Extract optional client info for logging
   const { appVersion, buildNumber, platform } = req.body;
