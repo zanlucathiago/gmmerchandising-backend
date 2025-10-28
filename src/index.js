@@ -5,6 +5,7 @@ const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const { initializeFirebase } = require('./config/firebase');
+const { logFirebaseStatus, getAuthStatistics } = require('./utils/firebaseUtils');
 const geocodingRoutes = require('./routes/geocoding');
 const { errorHandler } = require('./middleware/errorHandler');
 const { logger } = require('./utils/logger');
@@ -14,6 +15,9 @@ const PORT = process.env.PORT || 3000;
 
 // Initialize Firebase Admin SDK
 initializeFirebase();
+
+// Log Firebase configuration status
+logFirebaseStatus();
 
 // Trust proxy configuration for rate limiting and security
 // Configure to trust only the first proxy (recommended for Render deployment)
@@ -37,6 +41,24 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     service: 'gmmerchandising-backend'
   });
+});
+
+// Firebase configuration status endpoint
+app.get('/firebase-status', (req, res) => {
+  try {
+    const stats = getAuthStatistics();
+    res.status(200).json({
+      status: 'OK',
+      firebase: stats,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'ERROR',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // Rate limiting (applied after health check)
