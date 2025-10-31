@@ -64,8 +64,7 @@ class CacheDiagnostic {
           results.dataIntegrity = JSON.stringify(testData) === JSON.stringify(retrievedData);
           if (!results.dataIntegrity) {
             results.errors.push('Data integrity check failed - retrieved data does not match stored data');
-            logger.debug('Original data:', testData);
-            logger.debug('Retrieved data:', retrievedData);
+            logger.debug('Cache diagnostic data mismatch', { original: testData, retrieved: retrievedData });
           }
         } else {
           results.errors.push('Failed to retrieve test data from Redis');
@@ -76,6 +75,7 @@ class CacheDiagnostic {
       }
 
       logger.info('Cache diagnostic completed:', results);
+  logger.info('Cache diagnostic completed', results);
       return results;
 
     } catch (error) {

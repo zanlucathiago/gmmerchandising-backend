@@ -26,7 +26,7 @@ class CacheManager {
         message: ping ? 'Redis is connected and responsive' : 'Redis connection issue'
       };
     } catch (error) {
-      logger.error('Cache stats error:', error.message);
+  logger.error('Cache stats error', { error: error.message });
       return {
         available: false,
         error: error.message
@@ -52,15 +52,15 @@ class CacheManager {
         if (location.latitude && location.longitude) {
           // This would typically involve calling your geocoding service
           // and caching the results, but for now we'll just log it
-          logger.info(`Would warm up reverse geocoding cache for: ${location.latitude}, ${location.longitude}`);
+          logger.debug('Would warm up reverse geocoding cache', { latitude: location.latitude, longitude: location.longitude });
           successCount++;
         } else if (location.address) {
-          logger.info(`Would warm up geocoding cache for: ${location.address}`);
+          logger.debug('Would warm up geocoding cache', { address: location.address });
           successCount++;
         }
       } catch (error) {
         failCount++;
-        logger.error(`Cache warmup failed for location:`, location, error.message);
+  logger.error('Cache warmup failed for location', { location, error: error.message });
       }
     }
 
@@ -81,6 +81,10 @@ class CacheManager {
    */
   async clearByPattern(pattern) {
     logger.warn(`Cache clear by pattern '${pattern}' requested, but not implemented for Upstash Redis`);
+    // Warn só se debug
+    if (process.env.NODE_ENV === 'development') {
+      logger.warn(`Cache clear by pattern '${pattern}' requested, but not implemented for Upstash Redis`);
+    }
     return {
       success: false,
       message: 'Pattern-based cache clearing not available with Upstash Redis'
@@ -99,10 +103,10 @@ class CacheManager {
 
     try {
       const result = await this.redisService.del(key);
-      logger.info(`Cache cleared for key: ${key}`);
+      logger.info('Cache cleared', { key });
       return result;
     } catch (error) {
-      logger.error(`Failed to clear cache for key ${key}:`, error.message);
+      logger.error('Failed to clear cache', { key, error: error.message });
       return false;
     }
   }

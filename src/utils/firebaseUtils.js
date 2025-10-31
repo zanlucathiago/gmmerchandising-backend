@@ -43,7 +43,7 @@ const isFirebaseConfigAvailable = (configName) => {
     const apps = getFirebaseApps();
     return apps.hasOwnProperty(configName);
   } catch (error) {
-    logger.error(`Error checking Firebase config availability for ${configName}:`, error.message);
+  logger.error('Error checking Firebase config availability', { configName, error: error.message });
     return false;
   }
 };
@@ -61,7 +61,7 @@ const getProjectIdForConfig = (configName) => {
     }
     return null;
   } catch (error) {
-    logger.error(`Error getting project ID for config ${configName}:`, error.message);
+  logger.error('Error getting project ID for config', { configName, error: error.message });
     return null;
   }
 };
@@ -84,7 +84,7 @@ const verifyTokenForConfig = async (token, configName) => {
     await firebaseAuth.auth.verifyIdToken(token);
     return true;
   } catch (error) {
-    logger.debug(`Token verification failed for config ${configName}:`, error.message);
+  logger.debug('Token verification failed', { configName, error: error.message });
     return false;
   }
 };
@@ -111,16 +111,14 @@ const getAuthStatistics = () => {
 const logFirebaseStatus = () => {
   const stats = getAuthStatistics();
   
-  logger.info('🔧 Firebase Configuration Status:');
-  logger.info(`   📊 Total Configurations: ${stats.totalConfigurations}`);
-  logger.info(`   📋 Available: [${stats.availableConfigurations.join(', ')}]`);
-  logger.info(`   🔄 Multi-Config Support: ${stats.supportsMultipleConfigs ? 'Enabled' : 'Disabled'}`);
-  logger.info(`   🔑 Primary Config: ${stats.primaryConfigAvailable ? 'Available' : 'Not Available'}`);
-  logger.info(`   👤 Anonymous Config: ${stats.anonymousConfigAvailable ? 'Available' : 'Not Available'}`);
-  
-  if (stats.error) {
-    logger.warn(`   ⚠️  Error: ${stats.error}`);
-  }
+  logger.info('Firebase Configuration Status', {
+    totalConfigurations: stats.totalConfigurations,
+    availableConfigurations: stats.availableConfigurations,
+    supportsMultipleConfigs: stats.supportsMultipleConfigs,
+    primaryConfigAvailable: stats.primaryConfigAvailable,
+    anonymousConfigAvailable: stats.anonymousConfigAvailable,
+    error: stats.error || undefined
+  });
 };
 
 module.exports = {
