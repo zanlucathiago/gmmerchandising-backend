@@ -22,7 +22,7 @@ router.post('/reverse',
   cacheGeocodingResponse('reverse-geocode', 0, false, true), // Perpetual cache - never expires
   async (req, res, next) => {
   try {
-    const { latitude, longitude } = req.coordinates; // These are already rounded to 3 decimal places
+  const { latitude, longitude } = req.coordinates; // These are already rounded to 2 decimal places
     const originalCoords = req.originalCoordinates; // Original coordinates before rounding
     const clientInfo = req.clientInfo || {};
     
@@ -34,7 +34,7 @@ router.post('/reverse',
     // Log both original and rounded coordinates for transparency
     if (originalCoords.latitude !== latitude || originalCoords.longitude !== longitude) {
       logger.info(`📍 Original Coordinates: ${originalCoords.latitude}, ${originalCoords.longitude}`);
-      logger.info(`🎯 Rounded Coordinates (3 decimals): ${latitude}, ${longitude}`);
+  logger.info(`🎯 Rounded Coordinates (2 decimals): ${latitude}, ${longitude}`);
     } else {
       logger.info(`📍 Coordinates: ${latitude}, ${longitude}`);
     }

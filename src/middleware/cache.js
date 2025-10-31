@@ -13,7 +13,7 @@ const { roundCoordinates } = require('../utils/coordinateUtils');
 function generateCacheKey(prefix, data, userId = null) {
   // Ensure coordinates are rounded for consistent cache keys
   if (data.latitude !== undefined && data.longitude !== undefined) {
-    const rounded = roundCoordinates(data.latitude, data.longitude, 3);
+  const rounded = roundCoordinates(data.latitude, data.longitude, 2);
     data = { ...data, latitude: rounded.latitude, longitude: rounded.longitude };
   }
   

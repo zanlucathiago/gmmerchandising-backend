@@ -14,8 +14,8 @@ class GoogleMapsService {
 
   async reverseGeocode(latitude, longitude) {
     try {
-      // Ensure coordinates are rounded to 3 decimal places for consistency
-      const roundedCoords = roundCoordinates(latitude, longitude, 3);
+  // Ensure coordinates are rounded to 2 decimal places for consistency
+  const roundedCoords = roundCoordinates(latitude, longitude, 2);
       
       logger.info(`🎯 Using rounded coordinates for API call: ${roundedCoords.latitude}, ${roundedCoords.longitude}`);
       

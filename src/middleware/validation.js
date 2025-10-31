@@ -34,8 +34,8 @@ const validateCoordinates = (req, res, next) => {
     });
   }
 
-  // Round coordinates to 3 decimal places for consistency in cache and API calls
-  const roundedCoordinates = roundCoordinates(lat, lng, 3);
+  // Round coordinates to 2 decimal places for consistency in cache and API calls
+  const roundedCoordinates = roundCoordinates(lat, lng, 2);
 
   // Add rounded coordinates to request
   req.coordinates = roundedCoordinates;
