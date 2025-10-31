@@ -17,7 +17,7 @@ class GoogleMapsService {
   // Ensure coordinates are rounded to 2 decimal places for consistency
   const roundedCoords = roundCoordinates(latitude, longitude, 2);
       
-      logger.info(`🎯 Using rounded coordinates for API call: ${roundedCoords.latitude}, ${roundedCoords.longitude}`);
+  logger.debug(`Using rounded coordinates for API call`, { latitude: roundedCoords.latitude, longitude: roundedCoords.longitude });
       
       const response = await this.client.reverseGeocode({
         params: {
@@ -61,14 +61,14 @@ class GoogleMapsService {
         }
       };
     } catch (error) {
-      logger.error('Google Maps reverse geocoding error:', error.message);
+  logger.error('Google Maps reverse geocoding error', { error: error.message });
       throw new Error(`Failed to reverse geocode coordinates: ${error.message}`);
     }
   }
 
   async geocode(address) {
     try {
-      const response = await this.client.geocode({
+  const response = await this.client.geocode({
         params: {
           address: address,
           key: this.apiKey
@@ -108,7 +108,7 @@ class GoogleMapsService {
         }
       };
     } catch (error) {
-      logger.error('Google Maps geocoding error:', error.message);
+  logger.error('Google Maps geocoding error', { error: error.message });
       throw new Error(`Failed to geocode address: ${error.message}`);
     }
   }
